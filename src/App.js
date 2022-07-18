@@ -32,12 +32,82 @@ const Reducer = (state, action) => {
         current_operand: `${state.current_operand || ""}${payload.digit}`,
       };
     case ACTIONS.DELETE_DIGIT:
+      //if there is nothing written on our screen then nothing would happen
+      if (state.current_operand == null) return state;
+      //if there is a single digit on our screen then it the current operand will be none
+      if (state.current_operand.length == 1) {
+        return { ...state, current_operand: null };
+      }
+      //this slice will just remove the last digit
+      return {
+        ...state,
+        current_operand: state.current_operand.slice(0, -1),
+      };
     case ACTIONS.CLEAR:
       return {};
     case ACTIONS.CHOOSE_OPERATIONS:
+      if (state.current_operand == null && state.previous_operand == null)
+        return state;
+      if (state.current_operand == null)
+        return {
+          ...state,
+          operation: payload.operation,
+        };
+      if (state.previous_operand == null)
+        return {
+          ...state,
+          operation: payload.operation,
+          current_operand: null,
+          previous_operand: state.current_operand,
+        };
     case ACTIONS.EVAULATE:
+      if (
+        state.operation === null ||
+        state.current_operand === null ||
+        state.previous_operand === null
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        overwrite: true,
+        previous_operand: null,
+        operation: null,
+        current_operand: evalute(state),
+      };
   }
 };
+const DIGIT_FORMATTER = new Intl.NumberFormat("en-us", {
+  maximumFractionDigits: 0,
+});
+
+function format_Operand(operand) {
+  if (operand == null) return;
+  const [integer, decimal] = operand.split(".");
+  if (decimal == null) return DIGIT_FORMATTER.format(integer);
+  return `${DIGIT_FORMATTER.format(integer)}.${decimal}`;
+}
+
+function evalute({ current_operand, previous_operand, operation }) {
+  const previous = parseFloat(previous_operand);
+  const current = parseFloat(current_operand);
+  let computation = "";
+  switch (operation) {
+    case "+":
+      computation = previous + current;
+      break;
+    case "-":
+      computation = previous - current;
+      break;
+    case "*":
+      computation = previous * current;
+      break;
+    case "÷":
+      computation = previous / current;
+      break;
+  }
+  return computation.toString();
+}
 
 const App = () => {
   //state is the one that is going to be manipulated
@@ -56,9 +126,11 @@ const App = () => {
     <div className="calculator-grid">
       <div className="output">
         <div className="previous-operand">
-          {state.previous_operand} {state.operations}
+          {format_Operand(state.previous_operand)} {state.operations}
         </div>
-        <div className="current-operand">{state.current_operand}</div>
+        <div className="current-operand">
+          {format_Operand(state.current_operand)}
+        </div>
       </div>
       <button
         onClick={() => dispatch({ type: ACTIONS.CLEAR })}
@@ -66,7 +138,9 @@ const App = () => {
       >
         AC
       </button>
-      <button>DEL</button>
+      <button onClick={(e) => dispatch({ type: ACTIONS.DELETE_DIGIT })}>
+        DEL
+      </button>
 
       <OperationButton operation="÷" dispatch={dispatch} />
       <Digitbutton digit="1" dispatch={dispatch} />
@@ -83,7 +157,12 @@ const App = () => {
       <OperationButton operation="-" dispatch={dispatch} />
       <Digitbutton digit="." dispatch={dispatch} />
       <Digitbutton digit="0" dispatch={dispatch} />
-      <button className="span-two">=</button>
+      <button
+        onClick={() => dispatch({ type: ACTIONS.EVAULATE })}
+        className="span-two"
+      >
+        =
+      </button>
     </div>
   );
 };
